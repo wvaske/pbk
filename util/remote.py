@@ -79,4 +79,8 @@ def linux_which(executable=None, host='127.0.0.1', username='root', password=Non
 
     cmd = f'which {executable}'
     stdout, stderr = send_ssh_command(cmd, host, username, password, key_filename, logger, timeout)
-    return stdout.strip()
+
+    if stdout is '':
+        return None
+    else:
+        return stdout.strip()
