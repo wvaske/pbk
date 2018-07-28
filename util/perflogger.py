@@ -11,12 +11,22 @@ WARNING = logging.WARNING
 WARN = WARNING
 STATUS = 25
 INFO = logging.INFO
+VERBOSE = 19
+VERBOSER = 18
+VERBOSEST = 17
 DEBUG = logging.DEBUG
-VERBOSE = 9
-VERBOSER = 8
-VERBOSEST = 7
 NOTSET = logging.NOTSET
 
+custom_levels = {
+    'RESULT': RESULT,
+    'STATUS': STATUS,
+    'VERBOSE': VERBOSE,
+    'VERBOSER': VERBOSER,
+    'VERBOSEST': VERBOSEST
+}
+
+for level_name, level_num in custom_levels.items():
+    logging.addLevelName(level_num, level_name)
 
 class PerfLogger(logging.Logger):
 
@@ -29,17 +39,6 @@ class PerfLogger(logging.Logger):
         self.made_verboser = False
 
         PerfLogger.perf_loggers[(self.name, self.__hash__)] = self
-
-        custom_levels = {
-            'RESULT': RESULT,
-            'STATUS': STATUS,
-            'VERBOSE': VERBOSE,
-            'VERBOSER': VERBOSER,
-            'VERBOSEST': VERBOSEST
-        }
-
-        for level_name, level_num in custom_levels.items():
-            logging.addLevelName(level_num, level_name)
 
     def make_verboser(self):
         """
@@ -65,10 +64,13 @@ class PerfLogger(logging.Logger):
 
                 for item in ('module', 'lineno'):
                     format_string = stream_handler.formatter._fmt
+
                     if item not in format_string:
                         pre, post = format_string.split('%(message)s')
                         pre = pre.rstrip().rstrip(':') + f':%({item})s '
-                        stream_handler.formatter._fmt = '%(message)s'.join((pre, post))
+                        _fmt = '%(message)s'.join((pre, post))
+
+                        stream_handler.setFormatter(logging.Formatter(_fmt, stream_handler.formatter.datefmt))
 
         self.made_verboser = True
 
@@ -153,7 +155,7 @@ def configure_basic_logger(logger_name=None, path=None, verbose=False, stream_lo
 
 class LoggedObject(object):
 
-    def __init__(self, logger_name=None, logger=None, verbose=False, stream_log_level=None, file_log_level=None,
+    def __init__(self, logger_name=None, logger=None, verbose=False, stream_log_level=INFO, file_log_level=DEBUG,
                  *args, **kwargs):
         super().__init__(*args, *kwargs)
 
@@ -171,3 +173,10 @@ class LoggedObject(object):
                 except AttributeError:
                     self.logger.error("Got 'verbose' flag but logger doesn't support 'make_verboser' method. "
                                       "Leaving handlers alone and not making verboser")
+
+
+if __name__ == '__main__':
+    logger = configure_basic_logger('test_logger', stream_log_level='info', file_log_level='debug')
+    logger.debug('test')
+    logger.make_verboser()
+    logger.debug('test post make verboser')
