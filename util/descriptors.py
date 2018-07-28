@@ -15,7 +15,7 @@ class DescriptorClass(abc.ABC):
         :return:
         """
 
-    def __get__(self, instance):
+    def __get__(self, instance, owner):
         return instance.__dict__[self.prop_name]
 
     def __del__(self, instance):
