@@ -193,6 +193,58 @@ class GetUname(GetInfo):
         return uname_result
 
 
+class GetParted(GetInfo):
+
+    prerequisites = ['parted']
+
+    def run(self):
+        stdout, stderr = self.send_command('parted --list -m -s')
+        ret_data = parse_parted(stdout)
+        self.result_queue.put({'parted': ret_data})
+
+
+sample_string = """
+BYT;
+/dev/sda:239GB:scsi:512:4096:gpt:DELL PERC H330 Mini:;
+1:1049kB:165MB:164MB:fat16:primary:boot;
+2:165MB:239GB:239GB:btrfs:primary:;
+
+Error: /dev/sdb: unrecognised disk label
+BYT;
+/dev/sdb:7196GB:scsi:512:4096:unknown:DELL PERC H330 Mini:;
+
+Error: /dev/sdc: unrecognised disk label
+BYT;
+/dev/sdc:7196GB:scsi:512:4096:unknown:DELL PERC H330 Mini:;
+
+BYT;
+/dev/mapper/data1-store--data1:14.4TB:dm:512:4096:loop:Linux device-mapper (linear):;
+1:0.00B:14.4TB:14.4TB:btrfs::;
+
+"""
+
+
+def parse_parted(content):
+    devices = content.split('\n\n')
+    devices = [dev.strip() for dev in devices if "BYT;" in dev]
+    parsed_devices = {}
+    for dev in devices:
+        dev = dev.split('BYT;\n')[1]
+        dev, *parts = dev.split('\n')
+
+        dev_name, size, type_, physical_sector, logical_sector, label, name, _ = dev.split(':')
+        parsed_devices[dev_name] = dict(size=size, type=type_, physical_sector=physical_sector,
+                                        logical_sector=logical_sector, label=label, name=name)
+        if parts != []:
+            for part in parts:
+                part_num, start, end, size, filesystem, primary, flag = part.split(':')
+                parsed_devices[dev_name][f'p{part_num}'] = dict(
+                    start=start, end=end, size=size, filesystem=filesystem, primary=primary, flag=flag
+                )
+
+    return parsed_devices
+
+
 def parse_dmidecode_output(content):
     """
     Parse the whole dmidecode output.
