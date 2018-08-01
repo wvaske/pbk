@@ -31,21 +31,11 @@ for level_name, level_num in custom_levels.items():
     logging.addLevelName(level_num, level_name)
 
 
-def queued_logger_config(queue):
-    return {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'queue': {
-                'class': 'logging.handlers.QueueHandler',
-                'queue': queue
-            }
-        },
-        'root': {
-            'level': 'NOTSET',
-            'handlers': ['queue']
-        },
-    }
+def get_queued_logger(log_queue):
+    queued_logger = PerfLogger('Perf')
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    queued_logger.addHandler(queue_handler)
+    return queued_logger
 
 
 class PerfLogger(logging.Logger):
@@ -187,24 +177,11 @@ class LoggedObject(object):
                  log_queue=None, *args, **kwargs):
         super().__init__()
 
-        if log_queue:
-            logger_config = {
-                'version': 1,
-                'disable_existing_loggers': False,
-                'handlers': {
-                    'queue': {
-                        'class': 'logging.handlers.QueueHandler',
-                        'queue': log_queue,
-                    },
-                },
-                'root': {
-                    'level': 'DEBUG',
-                    'handlers': ['queue']
-                },
-            }
-            logging.config.dictConfig(logger_config)
-            self.logger = logging.getLogger('root')
-            self.logger.verbose(f'Got root logger from log_queue: {log_queue}')
+        self.log_queue = log_queue
+        if self.log_queue:
+            self.logger = get_queued_logger(log_queue)
+            self.logger.verbose(f'Using queued logger from log_queue: {self.log_queue}')
+            self.logger_name = self.logger.name
         elif logger is None:
             # We need to make a new logger
             self.logger_name = str(type(self)).split("'")[1].split('.')[-1] if logger_name is None else logger_name
