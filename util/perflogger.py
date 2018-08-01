@@ -1,6 +1,8 @@
 import os
 import sys
 import logging
+import logging.config
+import logging.handlers
 
 
 CRITICAL = logging.CRITICAL
@@ -28,6 +30,14 @@ custom_levels = {
 for level_name, level_num in custom_levels.items():
     logging.addLevelName(level_num, level_name)
 
+
+def get_queued_logger(log_queue):
+    queued_logger = PerfLogger('Perf')
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    queued_logger.addHandler(queue_handler)
+    return queued_logger
+
+
 class PerfLogger(logging.Logger):
 
     # We use a tuple as a key (name, hash) so we can connect to the same logger instance if we have
@@ -38,7 +48,7 @@ class PerfLogger(logging.Logger):
         super().__init__(name, level)
         self.made_verboser = False
 
-        PerfLogger.perf_loggers[(self.name, self.__hash__)] = self
+        PerfLogger.perf_loggers[(self.name, self.__hash__())] = self
 
     def make_verboser(self):
         """
@@ -49,6 +59,7 @@ class PerfLogger(logging.Logger):
         if not hasattr(self, 'handlers'):
             print('Can not make verboser, there are no handlers')
         else:
+            self.warning('Making VERBOSER')
             stream_handlers = [h for h in self.handlers if not hasattr(h, 'baseFilename')]
             log_levels = sorted([v for k, v in sys.modules[__name__].__dict__.items() if type(v) is int])
 
@@ -62,7 +73,7 @@ class PerfLogger(logging.Logger):
                     else:
                         stream_handler.setLevel(log_levels[current_level_index - 1])
 
-                for item in ('module', 'lineno'):
+                for item in ('processName', 'module', 'lineno'):
                     format_string = stream_handler.formatter._fmt
 
                     if item not in format_string:
@@ -71,6 +82,7 @@ class PerfLogger(logging.Logger):
                         _fmt = '%(message)s'.join((pre, post))
 
                         stream_handler.setFormatter(logging.Formatter(_fmt, stream_handler.formatter.datefmt))
+                self.info(f'New stream log level: {stream_handler.level}')
 
         self.made_verboser = True
 
@@ -89,11 +101,15 @@ class PerfLogger(logging.Logger):
     def verbosest(self, msg, *args, **kwargs):
         self._log(VERBOSEST, msg, args, **kwargs)
 
+    def log_queue_writer(self, level, msg):
+        level_method = getattr(self, level.lower())
+        level_method(msg)
+
 
 logging.setLoggerClass(PerfLogger)
 
 
-def get_perf_logger(logger_name, logger_hash, *args, **kwargs):
+def get_perf_logger(logger_name, logger_hash=None, *args, **kwargs):
     if (logger_name, logger_hash) not in PerfLogger.perf_loggers.keys():
         # if we can't find the specific by name & hash, try to find one by name only
         # If there are multiple loggers with the same name, this will pull a 'random' one
@@ -111,13 +127,15 @@ def get_perf_logger(logger_name, logger_hash, *args, **kwargs):
         return PerfLogger.perf_loggers[(logger_name, logger_hash)]
 
 
-def configure_basic_logger(logger_name=None, path=None, verbose=False, stream_log_level=INFO, file_log_level=DEBUG):
+def configure_basic_logger(logger_name=None, path=None, verbose=False,
+                           stream_log_level=INFO, file_log_level=DEBUG, **kwargs):
+    LoggerClass = kwargs.get('logger_class', PerfLogger)
     if isinstance(stream_log_level, str):
         stream_log_level = logging.getLevelName(stream_log_level.upper())
     if isinstance(file_log_level, str):
         file_log_level = logging.getLevelName(file_log_level.upper())
 
-    logger = PerfLogger(logger_name)
+    logger = LoggerClass(logger_name)
     logger.setLevel(file_log_level)
 
     log_file_name = '{}.log'.format(logger_name.rstrip('.log'))
@@ -156,14 +174,20 @@ def configure_basic_logger(logger_name=None, path=None, verbose=False, stream_lo
 class LoggedObject(object):
 
     def __init__(self, logger_name=None, logger=None, verbose=False, stream_log_level=INFO, file_log_level=DEBUG,
-                 *args, **kwargs):
-        super().__init__(*args, *kwargs)
+                 log_queue=None, *args, **kwargs):
+        super().__init__()
 
-        if logger is None:
+        self.log_queue = log_queue
+        if self.log_queue:
+            self.logger = get_queued_logger(log_queue)
+            self.logger.verbose(f'Using queued logger from log_queue: {self.log_queue}')
+            self.logger_name = self.logger.name
+        elif logger is None:
             # We need to make a new logger
             self.logger_name = str(type(self)).split("'")[1].split('.')[-1] if logger_name is None else logger_name
             self.logger = configure_basic_logger(logger_name=self.logger_name, stream_log_level=stream_log_level,
                                                  file_log_level=file_log_level, verbose=verbose)
+            self.logger.warning('We made a new logger')
         else:
             self.logger = logger
             self.logger_name = logger.name

@@ -1,4 +1,5 @@
 import select
+import functools
 import paramiko
 
 
@@ -84,3 +85,36 @@ def linux_which(executable=None, host='127.0.0.1', username='root', password=Non
         return None
     else:
         return stdout.strip()
+
+
+class SystemConnection(object):
+    """
+    This baseclass will be used whenever a process needs to connect to a remote system. It verifies that the right
+    connection parameters are passed and uses an instance of LogQueue to pass messages to the master logger.
+    """
+
+    def __init__(self, host=None, username=None, password=None, key_filename=None, *args, **kwargs):
+        super().__init__()
+
+        if hasattr(self, 'required_kwargs'):
+            # We may have this defined in a subclass before super.__init__ is called
+            self.required_kwargs += [host, username]
+        else:
+            self.required_kwargs = [host, username]
+
+        for kw in self.required_kwargs:
+            if kw is None:
+                raise Exception(f'Key word {kw} is required')
+
+        if not (password or key_filename):
+            raise Exception(f'Please provide either a password or key filename')
+
+        self.host = host
+        self.username = username
+        self.password = password
+        self.key_filename = key_filename
+
+        # Convenience mappings
+        self.auth = dict(host=self.host, username=self.username, password=self.password, key_filename=self.key_filename)
+        self.send_command = functools.partial(
+            send_ssh_command, host=host, username=username, password=password, key_filename=key_filename)

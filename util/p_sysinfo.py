@@ -1,9 +1,13 @@
+#!/usr/bin/env python3.6
 
+import sys
 import functools
+import multiprocessing
 
+from PBK.util.mp import SystemConnectionProcess
 from PBK.util.remote import send_ssh_command, linux_which
-from PBK.util.perflogger import LoggedObject
-from PBK.util.data_capture import DataCapture
+from PBK.util.perflogger import LoggedObject, get_queued_logger
+from PBK.util.p_data_capture import DataCapture
 
 
 class SystemInfo(LoggedObject):
@@ -28,21 +32,17 @@ class SystemInfo(LoggedObject):
         """
         super().__init__(*args, **kwargs)
         self.system_info = {}
-        self.send_command = functools.partial(
-            send_ssh_command, host=host, username=username, password=password, key_filename=key_filename)
+        self.auth = dict(host=host, username=username, password=password, key_filename=key_filename)
+        self.send_command = functools.partial(send_ssh_command, **self.auth)
 
         self.prerequisites = []
-        if auto_get is True:
-            self.logger.status(f'Getting data from all possible sources on host {host}')
+        self.get_classes = [v for k, v in sys.modules[__name__].__dict__.items()
+                            if k.startswith('Get')
+                            and issubclass(v, GetInfo)
+                            and k != 'GetInfo']
 
-        self.get_methods = [i for i in dir(self)
-                            if i.startswith('get_')
-                            and 'method' in str(type(getattr(self, i)))
-                            and i != 'get_all']
-        self.logger.info(f'Available system info sources: {[meth.lstrip("get_") for meth in self.get_methods]}')
-
-        for meth in self.get_methods:
-            self.prerequisites.extend(getattr(self, meth)(get_prerequisites=True))
+        for cls in self.get_classes:
+            self.prerequisites.extend(cls.prerequisites)
 
         self.logger.info(f'System info prerequisites: {self.prerequisites}')
         for prereq in self.prerequisites:
@@ -50,35 +50,70 @@ class SystemInfo(LoggedObject):
                 self.logger.warning(f'Prerequisite "{prereq}" is not met')
 
         if auto_get:
+            self.logger.status(f'Getting data from all possible sources on host {host}')
             self.get_all()
 
     def get_all(self):
-        for meth in self.get_methods:
-            getattr(self, meth)()
-            getter_name = meth.lstrip("get_")
-            if self.system_info.get(getter_name):
-                self.logger.status(f'Fetched data from {getter_name}.')
-            else:
-                self.logger.warning(f'Did not get data from {getter_name}')
+        process_pool = []
+        data_queue = multiprocessing.Queue()
+        for cls in self.get_classes:
+            process_pool.append(cls(data_queue, **self.auth, log_queue=self.log_queue))
 
-        return self.system_info
+        for p in process_pool:
+            p.daemon = True
+            self.logger.info(f'Started process: {p.name}')
 
-    def get_dmidecode(self, get_prerequisites=False):
-        if get_prerequisites:
-            return
+        [p.start() for p in process_pool]
 
+        # We can join and read all, or we can poll queue until we get the number we expect.
+        # If we join, we can have some processes that exit without returning data. If we poll
+        # the queue then we need each process to put _something_ in the queue or we hang forever
+
+        # Additionally, now that I added logger_queue, we don't want to .join because we want to
+        # pull log messages and log them as we get them.
+
+        # while data_queue.qsize() != len(self.get_classes) or not log_queue.empty():
+        #     self.logger.verbose('Checking log queue')
+        #     while not log_queue.empty():
+        #         self.logger.verboser('Have messages in log_queue')
+        #         msg = log_queue.get()
+        #         self.logger.log_queue_writer(**msg)
+        #     self.logger.verboser('Do not have data from each process...sleeping')
+        #     time.sleep(.5)
+
+        for i in range(len(self.get_classes)):
+            self.system_info.update(data_queue.get())
+
+        self.logger.status('Joining')
+        [p.join() for p in process_pool]
+        self.logger.status('Done!')
+
+
+class GetInfo(SystemConnectionProcess):
+
+    def __init__(self, result_queue=None, *args, **kwargs):
+        self.required_kwargs = [result_queue]
+        super().__init__(*args, **kwargs)
+        self.result_queue = result_queue
+
+
+class GetDmidecode(GetInfo):
+
+    prerequisites = ['dmidecode', 'doesnotexist']
+
+    def run(self):
+        self.logger = get_queued_logger(self.log_queue)
         stdout, stderr = self.send_command('dmidecode')
         self.logger.verbose(f'stdout length: {len(stdout)}')
         self.logger.verboser(f'Parsing dmidecode stdout:\n {stdout}')
         if stdout is "":
             self.logger.error('Did not get data for dmidecode command')
-            self.system_info['dmidecode'] = None
             return None
         else:
             self.logger.verbose('Beginning parse of dmidecode')
             self.logger.verboser(f'Repr of stdout: {repr(stdout)}')
             parsed_dmi = parse_dmidecode_output(stdout)
-            self.system_info['dmidecode'] = parsed_dmi
+            self.result_queue.put({'dmidecode': parsed_dmi})
             self.logger.verbose(f'dmidecode returned {len(parsed_dmi.keys())} sections')
             return parsed_dmi
 
@@ -168,6 +203,7 @@ class SystemInfoCapture(DataCapture):
         :param kwargs:
         """
         super().__init__(*args, **kwargs)
+        self.logger.info('Message in SystemInfoCapture')
 
         self.host = host
         self.username = username
@@ -179,6 +215,8 @@ class SystemInfoCapture(DataCapture):
 
         self._data = {}
         self.si = None
+        self.args = args
+        self.kwargs = kwargs
 
     def setup(self):
         """
@@ -186,7 +224,8 @@ class SystemInfoCapture(DataCapture):
         :return:
         """
         self.logger.status('Running setup routine...')
-        self.si = SystemInfo(self.host, self.username, self.password, self.key_filename, logger=self.logger)
+        self.si = SystemInfo(self.host, self.username, self.password, self.key_filename, *self.args, **self.kwargs)
+        self.logger.info(f'Made instance of SI with args: {self.args} and kwargs: {self.kwargs}')
 
     def teardown(self):
         """
@@ -198,7 +237,8 @@ class SystemInfoCapture(DataCapture):
 
     def start(self):
         self.logger.status('Collecting data at "start()"')
-        self.data = self.si.get_all()
+        self.si.get_all()
+        self.data = self.si.system_info
 
     def stop(self):
         """
@@ -222,26 +262,28 @@ if __name__ == "__main__":
     verbose = True
     auto_get = True
     key_filename = r'c:\Users\Administrator\Desktop\dev_sys_key.pem'
-    # si = SystemInfo(
-    #     host='192.168.1.15',
-    #     username='root',
-    #     key_filename=key_filename,
-    #     verbose=verbose,
-    #     auto_get=auto_get)
-    #
-    # if auto_get:
-    #     si.logger.result(pprint.pformat(si.system_info))
-
-    sic = SystemInfoCapture(
+    auth = dict(host='192.168.1.15',username='root',key_filename=key_filename,password=None)
+    si = SystemInfo(
         host='192.168.1.15',
         username='root',
         key_filename=key_filename,
         verbose=verbose,
-        stream_log_level='info')
+        auto_get=auto_get)
 
-    sic.setup()
-    sic.start()
-    sic.logger.info('We started things')
-    sic.stop()
-    sic.teardown()
-    sic.logger.result(f'Data is: {sic.data}')
+    if auto_get:
+        si.logger.result(si.system_info)
+
+    #
+    # sic = SystemInfoCapture(
+    #     host='192.168.1.15',
+    #     username='root',
+    #     key_filename=key_filename,
+    #     verbose=verbose,
+    #     stream_log_level='info')
+    #
+    # sic.setup()
+    # sic.start()
+    # sic.logger.info('We started things')
+    # sic.stop()
+    # sic.teardown()
+    # sic.logger.result(f'Data is: {sic.data}')

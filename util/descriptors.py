@@ -18,7 +18,7 @@ class DescriptorClass(abc.ABC):
     def __get__(self, instance, owner):
         return instance.__dict__[self.prop_name]
 
-    def __del__(self, instance):
+    def __delete__(self, instance):
         del instance.__dict__[self.prop_name]
 
 
