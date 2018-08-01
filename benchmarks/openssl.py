@@ -1,9 +1,9 @@
 
 import ipaddress
 
-from Perflosophy.util.remote import send_ssh_command
-from Perflosophy.util.descriptors import ValueChecked
-from Perflosophy.execution import TestExecutor
+from PBK.util.remote import send_ssh_command
+from PBK.util.descriptors import ValueChecked
+from PBK.execution import TestExecutor
 
 
 class OpenSSLTest(TestExecutor):

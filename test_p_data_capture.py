@@ -3,7 +3,7 @@ import logging
 import logging.config
 import logging.handlers
 
-from Perflosophy.util.perflogger import configure_basic_logger, get_queued_logger
+from PBK.util.perflogger import configure_basic_logger, get_queued_logger
 
 
 def log_queue_listener(q, stop_event, logger_name, **kwargs):
@@ -21,8 +21,8 @@ if __name__ == "__main__":
 
     import multiprocessing
 
-    from Perflosophy.util.p_sysinfo import SystemInfoCapture
-    from Perflosophy.util.p_data_capture import DataCaptureManager, DummyDataCapture
+    from PBK.util.p_sysinfo import SystemInfoCapture
+    from PBK.util.p_data_capture import DataCaptureManager, DummyDataCapture
 
     logger_name = "TestLogger"
     verbose = True

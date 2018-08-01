@@ -4,10 +4,10 @@ import sys
 import functools
 import multiprocessing
 
-from Perflosophy.util.mp import SystemConnectionProcess
-from Perflosophy.util.remote import send_ssh_command, linux_which
-from Perflosophy.util.perflogger import LoggedObject, get_queued_logger
-from Perflosophy.util.p_data_capture import DataCapture
+from PBK.util.mp import SystemConnectionProcess
+from PBK.util.remote import send_ssh_command, linux_which
+from PBK.util.perflogger import LoggedObject, get_queued_logger
+from PBK.util.p_data_capture import DataCapture
 
 
 class SystemInfo(LoggedObject):
