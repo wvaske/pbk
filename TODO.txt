@@ -1,0 +1,3 @@
+Try to refactor SystemInfo so that each get_method is actually a subclass of Process. They won't be methods anymore.
+    Maybe use a decorator to 'register' any classes with the SystemInfo manager?
+    Or just search the module for classes called Get<LinuxTool>?

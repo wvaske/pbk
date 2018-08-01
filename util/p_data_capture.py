@@ -16,7 +16,6 @@ class DataCaptureManager(object):
     def __init__(self, capture_classes, log_queue=None, *args, **kwargs):
         super().__init__()
         self.logger = get_queued_logger(log_queue)
-        self.logger.info('Test message from DCM')
 
         self.state_sequence = ('setup', 'start', 'stop', 'teardown')
 

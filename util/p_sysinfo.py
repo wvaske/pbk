@@ -44,16 +44,16 @@ class SystemInfo(LoggedObject):
         for cls in self.get_classes:
             self.prerequisites.extend(cls.prerequisites)
 
-        self.logger.info(f'System info prerequisites: {self.prerequisites}')
+        self.logger.verboser(f'System info prerequisites: {self.prerequisites}')
         for prereq in self.prerequisites:
             if linux_which(prereq, host, username, password, key_filename) is None:
                 self.logger.warning(f'Prerequisite "{prereq}" is not met')
 
         if auto_get:
-            self.logger.status(f'Getting data from all possible sources on host {host}')
             self.get_all()
 
     def get_all(self):
+        self.logger.status(f'Getting System Info data from all configured sources on host {self.auth["host"]}')
         process_pool = []
         data_queue = multiprocessing.Queue()
         for cls in self.get_classes:
@@ -61,32 +61,15 @@ class SystemInfo(LoggedObject):
 
         for p in process_pool:
             p.daemon = True
-            self.logger.info(f'Started process: {p.name}')
+            p.start()
+            self.logger.verboser(f'Started SysInfo getter process: {p.name}')
 
-        [p.start() for p in process_pool]
-
-        # We can join and read all, or we can poll queue until we get the number we expect.
-        # If we join, we can have some processes that exit without returning data. If we poll
-        # the queue then we need each process to put _something_ in the queue or we hang forever
-
-        # Additionally, now that I added logger_queue, we don't want to .join because we want to
-        # pull log messages and log them as we get them.
-
-        # while data_queue.qsize() != len(self.get_classes) or not log_queue.empty():
-        #     self.logger.verbose('Checking log queue')
-        #     while not log_queue.empty():
-        #         self.logger.verboser('Have messages in log_queue')
-        #         msg = log_queue.get()
-        #         self.logger.log_queue_writer(**msg)
-        #     self.logger.verboser('Do not have data from each process...sleeping')
-        #     time.sleep(.5)
-
+        self.logger.verboser('Joining SysInfo getter processes')
+        [p.join() for p in process_pool]
         for i in range(len(self.get_classes)):
             self.system_info.update(data_queue.get())
 
-        self.logger.status('Joining')
-        [p.join() for p in process_pool]
-        self.logger.status('Done!')
+        self.logger.verbose('Getting all SysInfo is complete')
 
 
 class GetInfo(SystemConnectionProcess):
@@ -104,14 +87,14 @@ class GetDmidecode(GetInfo):
     def run(self):
         self.logger = get_queued_logger(self.log_queue)
         stdout, stderr = self.send_command('dmidecode')
-        self.logger.verbose(f'stdout length: {len(stdout)}')
-        self.logger.verboser(f'Parsing dmidecode stdout:\n {stdout}')
+        self.logger.verboser(f'stdout length: {len(stdout)}')
+        self.logger.debug(f'Parsing dmidecode stdout:\n {stdout}')
         if stdout is "":
             self.logger.error('Did not get data for dmidecode command')
             return None
         else:
-            self.logger.verbose('Beginning parse of dmidecode')
-            self.logger.verboser(f'Repr of stdout: {repr(stdout)}')
+            self.logger.verboser('Beginning parse of dmidecode')
+            self.logger.debug(f'Repr of stdout: {repr(stdout)}')
             parsed_dmi = parse_dmidecode_output(stdout)
             self.result_queue.put({'dmidecode': parsed_dmi})
             self.logger.verbose(f'dmidecode returned {len(parsed_dmi.keys())} sections')
@@ -203,8 +186,6 @@ class SystemInfoCapture(DataCapture):
         :param kwargs:
         """
         super().__init__(*args, **kwargs)
-        self.logger.info('Message in SystemInfoCapture')
-
         self.host = host
         self.username = username
         self.password = password
@@ -223,20 +204,17 @@ class SystemInfoCapture(DataCapture):
         Setup here is just initializing the SystemInfo instance
         :return:
         """
-        self.logger.status('Running setup routine...')
         self.si = SystemInfo(self.host, self.username, self.password, self.key_filename, *self.args, **self.kwargs)
-        self.logger.info(f'Made instance of SI with args: {self.args} and kwargs: {self.kwargs}')
+        self.logger.debug(f'Made instance of SI with args: {self.args} and kwargs: {self.kwargs}')
 
     def teardown(self):
         """
         Nothing to do as we don't maintain any sort of connections or modify any systems
         :return:
         """
-        self.logger.status('Passing on teardown')
         pass
 
     def start(self):
-        self.logger.status('Collecting data at "start()"')
         self.si.get_all()
         self.data = self.si.system_info
 
@@ -245,7 +223,6 @@ class SystemInfoCapture(DataCapture):
         Dummy function that doesn't actually do anything.
         :return:
         """
-        self.logger.status('Passing on stop')
         pass
 
     @property
