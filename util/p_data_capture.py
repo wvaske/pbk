@@ -7,7 +7,7 @@ import multiprocessing
 import multiprocessing.queues
 import multiprocessing.managers
 
-from Perflosophy.util.perflogger import queued_logger_config
+from Perflosophy.util.perflogger import get_queued_logger
 from Perflosophy.util.descriptors import TypeChecked
 
 
@@ -15,8 +15,7 @@ class DataCaptureManager(object):
 
     def __init__(self, capture_classes, log_queue=None, *args, **kwargs):
         super().__init__()
-        logging.config.dictConfig(queued_logger_config(log_queue))
-        self.logger = logging.getLogger('root')
+        self.logger = get_queued_logger(log_queue)
         self.logger.info('Test message from DCM')
 
         self.state_sequence = ('setup', 'start', 'stop', 'teardown')
@@ -26,7 +25,7 @@ class DataCaptureManager(object):
         self.captures = []
         self.capture_classes = capture_classes
         self.log_queue = log_queue
-        self.logger.info(f'Capture classes: {self.capture_classes}')
+        self.logger.debug(f'Capture classes: {self.capture_classes}')
 
         self.manager = multiprocessing.Manager()
 
@@ -48,15 +47,14 @@ class DataCaptureManager(object):
                 *self.args,
                 **self.kwargs)
 
-            self.logger.info('Created instance of DCP')
+            self.logger.debug('Created instance of DCP')
             if daemonize:
-                self.logger.info('Daemonizing process')
+                self.logger.verbose('Daemonizing process')
                 p.daemon = True
 
-            self.logger.info(f'Starting dcp instance')
-            self.logger.verbose(f'Dir of p: {dir(p)}')
+            self.logger.debug(f'Starting dcp instance')
             p.start()
-            self.logger.info('Started dcp instance')
+            self.logger.debug('Started dcp instance')
             self.captures.append(p)
             self.captures_states.append(state_value)
 
@@ -92,7 +90,7 @@ class DataCaptureManager(object):
 
     def _get_states(self):
         states = {v.get() for v in self.captures_states}
-        self.logger.verbose(f'Got states: {states}')
+        self.logger.debug(f'Got states: {states}')
         return states
 
     @property
@@ -120,14 +118,13 @@ class DataCaptureProcess(multiprocessing.Process):
                 raise ValueError(f'Keywords: {required_kwargs} are required for DataCapture classes')
 
         self.log_queue = log_queue
-        logging.config.dictConfig(queued_logger_config(self.log_queue))
+
         # It's tempting to do:
         #   self.logger = ...
         #   But we can't. If we sent a self.<param> to a non-pickleable object them the Process
         #   can never start. We need to keep the log_queue and pull the logger as we need it.
-        logger = logging.getLogger('root')
-        logger.info('Test message from DCP')
-        logger.info(f'Args: {args}, Kwargs: {kwargs}')
+        logger = get_queued_logger(log_queue)
+        logger.debug(f'Args: {args}, Kwargs: {kwargs}')
 
         self.DataCapture = data_capture_class
         self.args = args
@@ -144,32 +141,39 @@ class DataCaptureProcess(multiprocessing.Process):
 
     def run(self):
         logger = logging.getLogger('root')
-        logger.info('Starting to wait for setup_event in DCP')
+        logger.verboser('Starting to wait for setup_event in DCP')
         self.setup_event.wait()
+        logger.verboser('Got setup event in DCP')
         dc = self.DataCapture(log_queue=self.log_queue, *self.args, **self.kwargs)
         dc.setup()
         self.state_value.set('setuped')
 
         self.start_event.wait()
+        logger.verboser('Got start event in DCP')
         dc.start()
         self.state_value.set('started')
 
         self.stop_event.wait()
+        logger.verboser('Got stop event in DCP')
         dc.stop()
         self.state_value.set('stopped')
 
         self.result_queue.put(dc.data)
+        logger.status('DCP put result in result queue')
+        logger.debug(f'Data: {dc.data}')
 
         self.teardown_event.wait()
+        logger.verboser('Got teardown event in DCP')
         dc.teardown()
         self.state_value.set('teardowned')
+        logger.verboser('End of run() in DCP')
 
 
 class DataCapture(abc.ABC):
 
     log_queue = TypeChecked(multiprocessing.queues.Queue, 'log_queue', allow_none=False)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, log_queue=None, *args, **kwargs):
         """
         The init method of a DataCapture subclass should verify that all systems are set up for capturing data.
 
@@ -178,6 +182,8 @@ class DataCapture(abc.ABC):
         :param args:
         :param kwargs:
         """
+        self.log_queue = log_queue
+        self.logger = get_queued_logger(self.log_queue)
 
     @abc.abstractmethod
     def setup(self):
@@ -223,10 +229,8 @@ class DataCapture(abc.ABC):
 
 class DummyDataCapture(DataCapture):
 
-    def __init__(self, log_queue=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        logging.config.dictConfig(queued_logger_config(log_queue))
-        self.logger = logging.getLogger('root')
 
     def setup(self):
         self.logger.status('Setup method')
