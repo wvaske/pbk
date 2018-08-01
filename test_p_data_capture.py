@@ -3,7 +3,7 @@ import logging
 import logging.config
 import logging.handlers
 
-from Perflosophy.util.perflogger import configure_basic_logger, queued_logger_config
+from Perflosophy.util.perflogger import configure_basic_logger, get_queued_logger
 
 
 def log_queue_listener(q, stop_event, logger_name, **kwargs):
@@ -25,18 +25,16 @@ if __name__ == "__main__":
     from Perflosophy.util.p_data_capture import DataCaptureManager, DummyDataCapture
 
     logger_name = "TestLogger"
+    verbose = True
     stop_event = multiprocessing.Event()
     log_queue = multiprocessing.Queue()
     listener_process = multiprocessing.Process(target=log_queue_listener, name="Listener",
-                                               args=(log_queue, stop_event, logger_name), kwargs=dict(verbose=True))
+                                               args=(log_queue, stop_event, logger_name), kwargs=dict(verbose=verbose))
     listener_process.start()
 
-    logging.config.dictConfig(queued_logger_config(log_queue))
-    logger = logging.getLogger('root')
-    logger.info('Test message, sleeping 1s')
-    time.sleep(1)
+    logger = get_queued_logger(log_queue)
+    logger.info('Test message #1')
 
-    verbose = False
     auto_get = True
     key_filename = r'c:\Users\Administrator\Desktop\dev_sys_key.pem'
     auth = dict(host='192.168.1.15', username='root', key_filename=key_filename, password=None)
@@ -52,8 +50,7 @@ if __name__ == "__main__":
         stream_log_level='info'
     )
 
-    logger.info('Have an instance off DCM, sleeping 1')
-    time.sleep(1)
+    logger.info('Have an instance of DCM')
     logger.info('Calling dcm.setup()')
     dcm.setup()
     logger.info('Calling dcm.start()')

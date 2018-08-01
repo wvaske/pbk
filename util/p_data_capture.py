@@ -106,6 +106,13 @@ class DataCaptureManager(object):
 
 class DataCaptureProcess(multiprocessing.Process):
 
+    """
+    This class will wrap a DataCapture object in a process and execute the 4 methods based on
+    event inputs (setup, start, stop, teardown). Right now these need to be executed in
+    sequential order. Future work might be done to support running the functions in an arbitrary
+    sequence.
+    """
+
     log_queue = TypeChecked(multiprocessing.queues.Queue, 'log_queue', allow_none=False)
 
     def __init__(self, data_capture_class=None, state_value=None, state_events=None, result_queue=None, log_queue=None,
