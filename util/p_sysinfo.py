@@ -1,15 +1,12 @@
 #!/usr/bin/env python3.6
 
 import sys
-import time
-import logging
-import logging.config
 import functools
 import multiprocessing
 
-from Perflosophy.util.mp import LogQueue, SystemConnectionProcess
+from Perflosophy.util.mp import SystemConnectionProcess
 from Perflosophy.util.remote import send_ssh_command, linux_which
-from Perflosophy.util.perflogger import LoggedObject, queued_logger_config
+from Perflosophy.util.perflogger import LoggedObject, get_queued_logger
 from Perflosophy.util.p_data_capture import DataCapture
 
 
@@ -59,9 +56,8 @@ class SystemInfo(LoggedObject):
     def get_all(self):
         process_pool = []
         data_queue = multiprocessing.Queue()
-        log_queue = LogQueue()
         for cls in self.get_classes:
-            process_pool.append(cls(data_queue, **self.auth, log_queue=log_queue))
+            process_pool.append(cls(data_queue, **self.auth, log_queue=self.log_queue))
 
         for p in process_pool:
             p.daemon = True
@@ -76,14 +72,14 @@ class SystemInfo(LoggedObject):
         # Additionally, now that I added logger_queue, we don't want to .join because we want to
         # pull log messages and log them as we get them.
 
-        while data_queue.qsize() != len(self.get_classes) or not log_queue.empty():
-            self.logger.verbose('Checking log queue')
-            while not log_queue.empty():
-                self.logger.verboser('Have messages in log_queue')
-                msg = log_queue.get()
-                self.logger.log_queue_writer(**msg)
-            self.logger.verboser('Do not have data from each process...sleeping')
-            time.sleep(.5)
+        # while data_queue.qsize() != len(self.get_classes) or not log_queue.empty():
+        #     self.logger.verbose('Checking log queue')
+        #     while not log_queue.empty():
+        #         self.logger.verboser('Have messages in log_queue')
+        #         msg = log_queue.get()
+        #         self.logger.log_queue_writer(**msg)
+        #     self.logger.verboser('Do not have data from each process...sleeping')
+        #     time.sleep(.5)
 
         for i in range(len(self.get_classes)):
             self.system_info.update(data_queue.get())
@@ -106,6 +102,7 @@ class GetDmidecode(GetInfo):
     prerequisites = ['dmidecode', 'doesnotexist']
 
     def run(self):
+        self.logger = get_queued_logger(self.log_queue)
         stdout, stderr = self.send_command('dmidecode')
         self.logger.verbose(f'stdout length: {len(stdout)}')
         self.logger.verboser(f'Parsing dmidecode stdout:\n {stdout}')
@@ -192,7 +189,7 @@ def _parse_dmi_section(section):
 
 class SystemInfoCapture(DataCapture):
 
-    def __init__(self, host=None, username=None, password=None, key_filename=None, log_queue=None, verbose=True, *args, **kwargs):
+    def __init__(self, host=None, username=None, password=None, key_filename=None, *args, **kwargs):
         """
         SystemInfoCapture is slightly different than most DataCapture classes. It will capture data at start
         but stop() doesn't do anything. We don't check differences between start and stop because it doesn't
@@ -206,9 +203,6 @@ class SystemInfoCapture(DataCapture):
         :param kwargs:
         """
         super().__init__(*args, **kwargs)
-        self.log_queue = log_queue
-        logging.config.dictConfig(queued_logger_config(log_queue))
-        self.logger = logging.getLogger('root')
         self.logger.info('Message in SystemInfoCapture')
 
         self.host = host
@@ -230,8 +224,8 @@ class SystemInfoCapture(DataCapture):
         :return:
         """
         self.logger.status('Running setup routine...')
-        self.si = SystemInfo(self.host, self.username, self.password, self.key_filename, log_queue=self.log_queue,
-                             *self.args, **self.kwargs)
+        self.si = SystemInfo(self.host, self.username, self.password, self.key_filename, *self.args, **self.kwargs)
+        self.logger.info(f'Made instance of SI with args: {self.args} and kwargs: {self.kwargs}')
 
     def teardown(self):
         """
