@@ -1,9 +1,9 @@
 
 import ipaddress
 
-from PBK.util.remote import send_ssh_command
-from PBK.util.descriptors import ValueChecked
-from PBK.execution import TestExecutor
+from pbk.util.remote import send_ssh_command
+from pbk.util.descriptors import ValueChecked
+from pbk.execution import TestExecutor
 
 
 class OpenSSLTest(TestExecutor):

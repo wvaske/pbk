@@ -1,9 +1,9 @@
 
 import functools
 
-from PBK.util.remote import send_ssh_command, linux_which
-from PBK.util.perflogger import LoggedObject
-from PBK.util.data_capture import DataCapture
+from pbk.util.remote import send_ssh_command, linux_which
+from pbk.util.perflogger import LoggedObject
+from pbk.util.data_capture import DataCapture
 
 
 class SystemInfo(LoggedObject):

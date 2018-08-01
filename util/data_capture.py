@@ -1,5 +1,5 @@
 import abc
-from PBK.util.perflogger import LoggedObject
+from pbk.util.perflogger import LoggedObject
 
 
 class DataCapture(LoggedObject, abc.ABC):

@@ -1,8 +1,8 @@
 import abc
 
-from PBK.util.perflogger import LoggedObject
-from PBK.util.descriptors import TypeChecked, ValueChecked
-from PBK.util.persist import PersistentMutableSequence
+from pbk.util.perflogger import LoggedObject
+from pbk.util.descriptors import TypeChecked, ValueChecked
+from pbk.util.persist import PersistentMutableSequence
 
 
 class PersistentTypeChecked(TypeChecked):

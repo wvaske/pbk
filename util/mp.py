@@ -1,8 +1,8 @@
 
 import multiprocessing.queues
 
-from PBK.util.remote import SystemConnection
-from PBK.util.descriptors import TypeChecked
+from pbk.util.remote import SystemConnection
+from pbk.util.descriptors import TypeChecked
 
 
 class SystemConnectionProcess(SystemConnection, multiprocessing.Process):

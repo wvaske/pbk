@@ -7,8 +7,8 @@ import multiprocessing
 import multiprocessing.queues
 import multiprocessing.managers
 
-from PBK.util.perflogger import get_queued_logger
-from PBK.util.descriptors import TypeChecked
+from pbk.util.perflogger import get_queued_logger
+from pbk.util.descriptors import TypeChecked
 
 
 class DataCaptureManager(object):
