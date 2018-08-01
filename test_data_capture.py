@@ -19,15 +19,15 @@ def log_queue_listener(q, stop_event, logger_name, **kwargs):
 
 
 if __name__ == "__main__":
-
+    import pprint
     import multiprocessing
 
     from pbk.util.sysinfo import SystemInfoCapture
     from pbk.util.data_capture import DataCaptureManager, DummyDataCapture
 
     logger_name = "TestLogger"
-    verbose = False
-    stream_log_level = None
+    verbose = True
+    stream_log_level = 'verboser'
 
     stop_event = multiprocessing.Event()
     log_queue = multiprocessing.Queue()
@@ -48,26 +48,40 @@ if __name__ == "__main__":
     key_filename = r'c:\Users\Administrator\Desktop\dev_sys_key.pem'
     auth = dict(host='192.168.1.15', username='root', key_filename=key_filename, password=None)
 
+    start_time = time.time()
     logger.debug('Creating instance of DCM')
+
+    multiplex_params = dict(
+        host=['192.168.1.15', '192.168.1.36', '192.168.1.2'],
+    )
+
     dcm = DataCaptureManager(
         capture_classes=[SystemInfoCapture, ],
         log_queue=log_queue,
-        host='192.168.1.15',
         username='root',
         password=None,
-        key_filename=key_filename
+        key_filename=key_filename,
+        multi_params=multiplex_params
     )
 
     logger.debug('Have an instance of DCM')
     logger.debug('Calling dcm.setup()')
     dcm.setup()
     logger.debug('Calling dcm.start()')
+
     dcm.start()
-    dcm.logger.debug('We started things')
     dcm.stop()
     dcm.teardown()
 
-    logger.result(f'Data is: {dcm.result_data}')
+    stop_time = time.time()
+
+    for result_set in dcm.result_data:
+        for capture_data in result_set['result_data']:
+            capture_name = list(capture_data.keys())[0]
+            logger.result(f"\n\tHost: {result_set['host']} \tCapture: {capture_name} \t"
+                          f"Data : {capture_data[capture_name].keys()}\n")
+
+    logger.result('Data capture completed in {:0.1f} seconds'.format(stop_time - start_time))
 
     stop_event.set()
-    exit()
+

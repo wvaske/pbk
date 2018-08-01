@@ -13,49 +13,95 @@ from pbk.util.descriptors import TypeChecked
 
 class DataCaptureManager(object):
 
-    def __init__(self, capture_classes, log_queue=None, *args, **kwargs):
-        super().__init__()
-        self.logger = get_queued_logger(log_queue)
+    def __init__(self, capture_classes, multi_params=None, log_queue=None, *args, **kwargs):
+        """
+        Data Capture Manager will build out the captures from the provided Classes, args & kwargs, and
+          multi_params. multi_params should ba dictionary where the values are iterables. DCM will build
+          all capture classes for each combination of params and values
 
+          multi_params = {'host': [192.168.1.1, 192.168.1.2], 'disk': ['sda', 'sdb']}
+          capture_classes = DiskInfo  #doesn't exist, but imagine if it did
+
+          This would result in captures for:
+            host: 192.168.1.1, disk: sda
+            host: 192.168.1.1, disk: sdb
+            host: 192.168.1.2, disk: sda
+            host: 192.168.1.2, disk: sdb
+
+          This was implemented to support captures on multiple hosts but was done to support unkonwn future
+          use cases
+
+          A user an also use add_capture_process to manually add defined capture processes. The disadvantage is
+          that the capture process will need to return all pertinent data in the result_data as the multiplex
+          paramater will not be recorded as it will for multi_params
+
+        :param capture_classes:
+        :param multi_params:
+        :param log_queue:
+        :param args:
+        :param kwargs:
+        """
+        super().__init__()
+        self.log_queue = log_queue
+        self.logger = get_queued_logger(log_queue)
         self.state_sequence = ('setup', 'start', 'stop', 'teardown')
 
         self.args = args
         self.kwargs = kwargs
         self.captures = []
         self.capture_classes = capture_classes
-        self.log_queue = log_queue
+        self.multi_params = multi_params
+        self.capture_matrix = []
+
         self.logger.debug(f'Capture classes: {self.capture_classes}')
+        self.logger.debug(f'Multiplexing parameters: {self.multi_params}')
 
         self.manager = multiprocessing.Manager()
-
         self.state_events = {state: multiprocessing.Event() for state in self.state_sequence}
         self.captures_states = []
 
-        self.result_queue = multiprocessing.Queue(maxsize=len(self.capture_classes))
-        self._result_data = []
+        self.build_capture_processes()
+
+    def build_capture_processes(self):
+        self.capture_matrix = [{}]
+        sub_matrix = []
+        for param, values in self.multi_params.items():
+            for value in values:
+                for item in self.capture_matrix:
+                    temp = item.copy()
+                    temp.update({param: value})
+                    sub_matrix.append(temp)
+
+            self.capture_matrix = sub_matrix
+            sub_matrix = []
+
+        for item in self.capture_matrix:
+            item['result_queue'] = multiprocessing.Queue(maxsize=len(self.capture_classes))
+            item['result_data'] = []
 
     def setup(self, wait=True, timeout=0, daemonize=False):
-        for capture_class in self.capture_classes:
-            state_value = self.manager.Value('c', 'initializing')
-            p = DataCaptureProcess(
-                data_capture_class=capture_class,
-                state_value=state_value,
-                state_events=self.state_events,
-                result_queue=self.result_queue,
-                log_queue=self.log_queue,
-                *self.args,
-                **self.kwargs)
+        for multi_kwargs in self.capture_matrix:
+            for capture_class in self.capture_classes:
+                state_value = self.manager.Value('c', 'initializing')
+                p = DataCaptureProcess(
+                    data_capture_class=capture_class,
+                    state_value=state_value,
+                    state_events=self.state_events,
+                    log_queue=self.log_queue,
+                    *self.args,
+                    **multi_kwargs,
+                    **self.kwargs)
 
-            self.logger.debug('Created instance of DCP')
-            if daemonize:
-                self.logger.verbose('Daemonizing process')
-                p.daemon = True
+                self.logger.debug('Created instance of DCP')
+                if daemonize:
+                    self.logger.verbose('Daemonizing process')
+                    p.daemon = True
 
-            self.logger.debug(f'Starting dcp instance')
-            p.start()
-            self.logger.debug('Started dcp instance')
-            self.captures.append(p)
-            self.captures_states.append(state_value)
+                self.logger.debug(f'Starting dcp instance')
+                p.start()
+                self.logger.debug('Started dcp instance')
+                self.captures.append(p)
+                self.captures_states.append(state_value)
 
         self.state_events['setup'].set()
         if wait:
@@ -80,7 +126,6 @@ class DataCaptureManager(object):
         start_time = time.time()
         while True:
             states = self._get_states()  # Use a set to combine like states.
-            #self._flush_log_queue()
             if len(states) == 1 and {state}.issuperset(states):
                 break
             if timeout > 0 and (time.time() - start_time >= timeout):
@@ -94,13 +139,15 @@ class DataCaptureManager(object):
 
     @property
     def result_data(self):
-        while self.result_queue.qsize() > 0:
-            self._result_data.append(self.result_queue.get())
+        for capture_set in self.capture_matrix:
+            while capture_set['result_queue'].qsize() > 0:
+                capture_set['result_data'].append(capture_set['result_queue'].get())
 
-        if len(self._result_data) < len(self.capture_classes):
-            return None
-        else:
-            return self._result_data
+        result_data = []
+        for capture_set in self.capture_matrix:
+            result_data.append({k: v for k, v in capture_set.items() if k not in ('result_queue', )})
+
+        return result_data
 
 
 class DataCaptureProcess(multiprocessing.Process):
@@ -188,6 +235,7 @@ class DataCapture(abc.ABC):
         :param args:
         :param kwargs:
         """
+        self._data = {}
         self.log_queue = log_queue
         self.logger = get_queued_logger(self.log_queue)
 
@@ -224,13 +272,20 @@ class DataCapture(abc.ABC):
         pass
 
     @property
-    @abc.abstractmethod
     def data(self):
         """
         Calling self.data will do whatever is necessary to the raw output from start and stop and return the
           'parsed/analyzed' data
+
+        Return format:
+           return {self.__name__: self._data}
         :return:
         """
+        return {self.__class__.__name__: self._data}
+
+    @data.setter
+    def data(self, value):
+        self._data = value
 
 
 class DummyDataCapture(DataCapture):

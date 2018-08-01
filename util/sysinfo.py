@@ -96,7 +96,6 @@ class SystemInfoCapture(DataCapture):
         if key_filename is None and password is None:
             raise Exception('SystemInfo requires a password or SSH key file')
 
-        self._data = {}
         self.si = None
         self.args = args
         self.kwargs = kwargs
@@ -113,13 +112,6 @@ class SystemInfoCapture(DataCapture):
         self.si.get_all()
         self.data = self.si.system_info
 
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        self._data = value
 
 
 class GetInfo(SystemConnectionProcess):
@@ -141,14 +133,15 @@ class GetDmidecode(GetInfo):
         self.logger.debug(f'Parsing dmidecode stdout:\n {stdout}')
         if stdout is "":
             self.logger.error('Did not get data for dmidecode command')
-            return None
+            ret_data = None
         else:
             self.logger.verboser('Beginning parse of dmidecode')
             self.logger.debug(f'Repr of stdout: {repr(stdout)}')
-            parsed_dmi = parse_dmidecode_output(stdout)
-            self.result_queue.put({'dmidecode': parsed_dmi})
-            self.logger.verbose(f'dmidecode returned {len(parsed_dmi.keys())} sections')
-            return parsed_dmi
+            ret_data = parse_dmidecode_output(stdout)
+            self.logger.verbose(f'dmidecode returned {len(ret_data.keys())} sections')
+
+        self.result_queue.put({'dmidecode': ret_data})
+        return ret_data
 
 
 class GetModinfo(GetInfo):
@@ -156,7 +149,9 @@ class GetModinfo(GetInfo):
     prerequisites = ['modprobe', 'modinfo']
 
     def run(self):
-        return None
+        ret_data = None
+        self.result_queue.put({'modinfo': ret_data})
+        return ret_data
 
 
 class GetLspci(GetInfo):
@@ -164,9 +159,38 @@ class GetLspci(GetInfo):
     prerequisites = ['lspci']
 
     def run(self):
-        self.logger = get_queued_logger(self.log_queue)
-        stdout, stderr = self.send_command('lspci')
+        ret_data = None
+        self.result_queue.put({'lspci': ret_data})
+        return ret_data
 
+
+class GetUname(GetInfo):
+
+    prerequisites = ['uname']
+
+    def run(self):
+        """
+        Uname supports a set of flags to return specific information:
+            -s, --kernel - name        print the kernel name
+            - n, --nodename           print the network node hostname
+            - r, --kernel - release     print the kernel release
+            - v, --kernel - version     print the kernel version
+            - m, --machine            print the machine hardware name
+            - p, --processor          print the processor type(non - portable)
+            - i, --hardware - platform  print the hardware platform(non - portable)
+            - o, --operating - system   print the operating system
+        :return:
+        """
+        uname_flags = dict(s='kernel', n='nodename', r='kernel-release', v='kernel-version',
+                           m='machine', p='processor', i='hardware-platform', o='operating-system')
+        uname_result = {}
+
+        for flag, name in uname_flags.items():
+            stdout, _ = self.send_command(f'uname -{flag}')
+            uname_result[name] = stdout.strip()
+
+        self.result_queue.put({'uname': uname_result})
+        return uname_result
 
 
 def parse_dmidecode_output(content):
