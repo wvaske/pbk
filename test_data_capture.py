@@ -22,8 +22,8 @@ if __name__ == "__main__":
 
     import multiprocessing
 
-    from pbk.util.p_sysinfo import SystemInfoCapture
-    from pbk.util.p_data_capture import DataCaptureManager, DummyDataCapture
+    from pbk.util.sysinfo import SystemInfoCapture
+    from pbk.util.data_capture import DataCaptureManager, DummyDataCapture
 
     logger_name = "TestLogger"
     verbose = False
