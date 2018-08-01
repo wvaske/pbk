@@ -1,4 +1,5 @@
 import time
+import pprint
 import logging
 import logging.config
 import logging.handlers
@@ -19,15 +20,17 @@ def log_queue_listener(q, stop_event, logger_name, **kwargs):
 
 
 if __name__ == "__main__":
+    import json
     import pprint
     import multiprocessing
 
+    from pbk.util import truncate_non_dicts
     from pbk.util.sysinfo import SystemInfoCapture
     from pbk.util.data_capture import DataCaptureManager, DummyDataCapture
 
     logger_name = "TestLogger"
     verbose = True
-    stream_log_level = 'verboser'
+    stream_log_level = None
 
     stop_event = multiprocessing.Event()
     log_queue = multiprocessing.Queue()
@@ -82,6 +85,7 @@ if __name__ == "__main__":
                           f"Data : {capture_data[capture_name].keys()}\n")
 
     logger.result('Data capture completed in {:0.1f} seconds'.format(stop_time - start_time))
-
     stop_event.set()
+    listener_process.join(timeout=30)
 
+    print(json.dumps(truncate_non_dicts(dcm.result_data), indent=4, sort_keys=True))
