@@ -1,4 +1,5 @@
 import select
+import socket
 import functools
 import paramiko
 
@@ -85,6 +86,31 @@ def linux_which(executable=None, host='127.0.0.1', username='root', password=Non
         return None
     else:
         return stdout.strip()
+
+
+def remote_os_type_windows(host='127.0.0.1'):
+    """
+    This function will look to see which ports are accepting connections and make a decision based on that. For
+      the hosts I work with in this code, I can reduce this to looking at a few ports. If one of them is open, it's
+      a Windows host. Otherwise it's a linux host. This is NOT likely to be useful outside of the circumstances in
+      which this specific code runs.
+
+    :param host:
+    :return:
+    """
+
+    ports = (445, 3389, 5985)  # SMB, RDP, PowerShell
+
+    is_windows = False
+    for port in ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect((host, port))
+            is_windows = True
+        except ConnectionRefusedError:
+            pass
+
+    return is_windows
 
 
 class SystemConnection(object):
