@@ -29,7 +29,8 @@ class PersistentValueChecked(ValueChecked):
 
 class TestList:
     """
-    I need a definition so pycharm doesn't yell at me when I check this in TestResult
+    I need a definition so pycharm doesn't yell at me when I check this in TestResult. TestRestult and TestList
+      have a co-dependency.
     """
     pass
 
@@ -117,6 +118,15 @@ class TestSequence(abc.ABC):
     test_list = TypeChecked(TestList, "test_list")
 
     def __init__(self):
+        """
+        TestSequence supports context manager usage:
+
+        with TestSequenceClass(**params) as ts:
+            while ts.tests_remaining:
+                result = ts.execute_next
+
+
+        """
         pass
 
     @abc.abstractmethod
@@ -135,3 +145,23 @@ class TestSequence(abc.ABC):
         :return:
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def setup(self):
+        """
+        This defines pre-configuration steps necessary for a test sequence.
+        :return:
+        """
+
+    def teardown(self):
+        """
+        This defines post-configuraiton steps necessary. Not all tests have this requirement
+        :return:
+        """
+        pass
+
+    def __enter__(self):
+        self.setup()
+
+    def __exit__(self):
+        self.teardown()
