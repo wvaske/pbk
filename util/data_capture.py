@@ -11,7 +11,7 @@ from pbk.util.perflogger import get_queued_logger
 from pbk.util.descriptors import TypeChecked
 
 
-class DataCaptureManager(object):
+class DataCaptureManager:
 
     def __init__(self, capture_classes, multi_params=None, log_queue=None, *args, **kwargs):
         """
@@ -28,10 +28,9 @@ class DataCaptureManager(object):
             host: 192.168.1.2, disk: sda
             host: 192.168.1.2, disk: sdb
 
-          This was implemented to support captures on multiple hosts but was done to support unkonwn future
-          use cases
+          This was implemented to support captures on multiple hosts
 
-          A user an also use add_capture_process to manually add defined capture processes. The disadvantage is
+          A user can also use add_capture_process to manually add defined capture processes. The disadvantage is
           that the capture process will need to return all pertinent data in the result_data as the multiplex
           paramater will not be recorded as it will for multi_params
 
