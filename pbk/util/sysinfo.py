@@ -113,7 +113,6 @@ class SystemInfoCapture(DataCapture):
         self.data = self.si.system_info
 
 
-
 class GetInfo(SystemConnectionProcess):
 
     def __init__(self, result_queue=None, *args, **kwargs):
@@ -123,7 +122,6 @@ class GetInfo(SystemConnectionProcess):
 
 
 class GetDmidecode(GetInfo):
-
     prerequisites = ['dmidecode']
 
     def run(self):
@@ -145,7 +143,6 @@ class GetDmidecode(GetInfo):
 
 
 class GetModinfo(GetInfo):
-
     prerequisites = ['modprobe', 'modinfo']
 
     def run(self):
@@ -155,7 +152,6 @@ class GetModinfo(GetInfo):
 
 
 class GetLspci(GetInfo):
-
     prerequisites = ['lspci']
 
     def run(self):
@@ -165,7 +161,6 @@ class GetLspci(GetInfo):
 
 
 class GetUname(GetInfo):
-
     prerequisites = ['uname']
 
     def run(self):
@@ -194,7 +189,6 @@ class GetUname(GetInfo):
 
 
 class GetParted(GetInfo):
-
     prerequisites = ['parted']
 
     def run(self):
@@ -314,13 +308,13 @@ def _parse_dmi_section(section):
     return data
 
 
-
 if __name__ == "__main__":
     import pprint
+
     verbose = True
     auto_get = True
     key_filename = r'c:\Users\Administrator\Desktop\dev_sys_key.pem'
-    auth = dict(host='192.168.1.15',username='root',key_filename=key_filename,password=None)
+    auth = dict(host='192.168.1.15', username='root', key_filename=key_filename, password=None)
     si = SystemInfo(
         host='192.168.1.15',
         username='root',

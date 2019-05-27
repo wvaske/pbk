@@ -4,7 +4,6 @@ import logging
 import logging.config
 import logging.handlers
 
-
 CRITICAL = logging.CRITICAL
 FATAL = CRITICAL
 ERROR = logging.ERROR
@@ -39,7 +38,6 @@ def get_queued_logger(log_queue):
 
 
 class PerfLogger(logging.Logger):
-
     # We use a tuple as a key (name, hash) so we can connect to the same logger instance if we have
     # multiple loggers with the same name
     perf_loggers = {}

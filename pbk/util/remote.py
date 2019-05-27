@@ -78,7 +78,6 @@ def send_ssh_command(command=None, host='127.0.0.1', username='root', password=N
 
 def linux_which(executable=None, host='127.0.0.1', username='root', password=None, key_filename=None,
                 logger=None, timeout=60):
-
     cmd = f'which {executable}'
     stdout, stderr = send_ssh_command(cmd, host, username, password, key_filename, logger, timeout)
 

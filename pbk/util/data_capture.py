@@ -144,13 +144,12 @@ class DataCaptureManager:
 
         result_data = []
         for capture_set in self.capture_matrix:
-            result_data.append({k: v for k, v in capture_set.items() if k not in ('result_queue', )})
+            result_data.append({k: v for k, v in capture_set.items() if k not in ('result_queue',)})
 
         return result_data
 
 
 class DataCaptureProcess(multiprocessing.Process):
-
     """
     This class will wrap a DataCapture object in a process and execute the 4 methods based on
     event inputs (setup, start, stop, teardown). Right now these need to be executed in
@@ -222,7 +221,6 @@ class DataCaptureProcess(multiprocessing.Process):
 
 
 class DataCapture(abc.ABC):
-
     log_queue = TypeChecked(multiprocessing.queues.Queue, 'log_queue', allow_none=False)
 
     def __init__(self, log_queue=None, *args, **kwargs):

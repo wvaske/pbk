@@ -1,4 +1,3 @@
-
 import ipaddress
 
 from pbk.util.remote import send_ssh_command
@@ -7,7 +6,6 @@ from pbk.execution import TestExecutor
 
 
 class OpenSSLTest(TestExecutor):
-
     ALGORITHMS = ['md2', 'md4', 'md5', 'hmac', 'sha1', 'sha256', 'sha512', 'whirlpoolrmd160', 'idea-cbc', 'seed-cbc',
                   'rc2-cbc', 'rc5-cbc', 'bf-cbc', 'des-cbc', 'des-ede3', 'aes-128-cbc', 'aes-192-cbc', 'aes-256-cbc',
                   'aes-128-ige', 'aes-192-ige', 'aes-256-ige', 'camellia-128-cbc', 'camellia-192-cbc',
@@ -17,7 +15,8 @@ class OpenSSLTest(TestExecutor):
 
     algorithm = ValueChecked(allowed_values=ALGORITHMS, prop_name='algorithm', allow_none=False)
 
-    def __init__(self, host=None, username=None, password=None, engine=None, algorithm=None, parallel=1, decrypt=False, *args, **kwargs):
+    def __init__(self, host=None, username=None, password=None, engine=None, algorithm=None, parallel=1, decrypt=False,
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.host = host
         self.username = username

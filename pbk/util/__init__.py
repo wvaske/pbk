@@ -26,7 +26,7 @@ def truncate_non_dicts(nested_item):
         if islist(nested_item):
             return [truncate_non_dicts(item) for item in nested_item]
         elif hasattr(nested_item, 'keys'):
-            return {k:truncate_non_dicts(v) for k, v in nested_item.items()}
+            return {k: truncate_non_dicts(v) for k, v in nested_item.items()}
         else:
             print('SHOUYLD NOT GET HERE!!!')
             return None

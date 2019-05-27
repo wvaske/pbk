@@ -48,7 +48,6 @@ class TestResult:
 
 
 class TestExecutor(abc.ABC, LoggedObject):
-
     STATUSES = ['completed', 'pending', 'failed']
     result = PersistentTypeChecked(allowed_type=TestResult, prop_name='result', allow_none=True)
     parent = PersistentTypeChecked(allowed_type=TestList, prop_name='parent', allow_none=True)
@@ -81,7 +80,6 @@ class TestExecutor(abc.ABC, LoggedObject):
 
 
 class TestList(PersistentMutableSequence):
-
     member_type = TestExecutor
 
     def __init__(self, *args, **kwargs):
@@ -114,7 +112,6 @@ class TestList(PersistentMutableSequence):
 
 
 class TestSequence(abc.ABC):
-
     test_list = TypeChecked(TestList, "test_list")
 
     def __init__(self):
