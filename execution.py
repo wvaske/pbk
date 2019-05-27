@@ -11,8 +11,8 @@ class PersistentTypeChecked(TypeChecked):
         super().__set__(instance, value)
         instance.persist()
 
-    def __del__(self, instance):
-        super().__del__(instance)
+    def __delete__(self, instance):
+        super().__delete__(instance)
         instance.persist()
 
 
@@ -22,8 +22,8 @@ class PersistentValueChecked(ValueChecked):
         super().__set__(instance, value)
         instance.persist()
 
-    def __del__(self, instance):
-        super().__del__(instance)
+    def __delete__(self, instance):
+        super().__delete__(instance)
         instance.persist()
 
 
