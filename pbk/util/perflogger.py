@@ -48,6 +48,9 @@ class PerfLogger(logging.Logger):
 
         PerfLogger.perf_loggers[(self.name, self.__hash__())] = self
 
+    def __reduce__(self):
+        return get_perf_logger, (self.name,)
+    
     def make_verboser(self):
         """
         This method will increase the logging level of the stream handler and add the module and line number
