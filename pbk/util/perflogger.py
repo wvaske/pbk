@@ -8,14 +8,17 @@ CRITICAL = logging.CRITICAL
 FATAL = CRITICAL
 ERROR = logging.ERROR
 RESULT = 35
-WARNING = logging.WARNING
+WARNING = logging.WARNING   # 30
 WARN = WARNING
 STATUS = 25
-INFO = logging.INFO
+INFO = logging.INFO         # 20
 VERBOSE = 19
 VERBOSER = 18
 VERBOSEST = 17
-DEBUG = logging.DEBUG
+DEBUG = logging.DEBUG       # 10
+RIDICULOUS = 7
+LUDICROUS = 5
+PLAID = 3
 NOTSET = logging.NOTSET
 
 custom_levels = {
@@ -23,7 +26,10 @@ custom_levels = {
     'STATUS': STATUS,
     'VERBOSE': VERBOSE,
     'VERBOSER': VERBOSER,
-    'VERBOSEST': VERBOSEST
+    'VERBOSEST': VERBOSEST,
+    'RIDICULOUS': RIDICULOUS,
+    'LUDICROUS': LUDICROUS,
+    'PLAID': PLAID
 }
 
 for level_name, level_num in custom_levels.items():
@@ -87,11 +93,47 @@ class PerfLogger(logging.Logger):
 
         self.made_verboser = True
 
+    # def _log(self, level, msg, args, color=None, exc_info=None, extra=None, stack_info=False):
+    #     # At one point I had log in _log and called super() to modify messages. For some reason
+    #     #   that doesn't work and I'm not entirely sure why. I ended up removing that particular
+    #     #   functionality but I'm leaving this here and commented out in case I implement some
+    #     #   other message formatting down the road and then don't need to figure this out
+    #     #   all over again.
+    #     #
+    #     # To get _log to work properly (especially for module and line number) we just copy and
+    #     #   this content from the base class and reimplement it here. There's probably a way to
+    #     #   get the traceback to properly go up a level but I couldn't figure it out and this
+    #     #   was pretty easy
+    #
+    #     #
+    #     #  Insert future message modifications here
+    #     #
+    #
+    #     # Keep this part due to the message above
+    #     sinfo = None
+    #     fn, lno, func, sinfo = self.findCaller(stack_info)
+    #     if exc_info:
+    #         if isinstance(exc_info, BaseException):
+    #             exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+    #         elif not isinstance(exc_info, tuple):
+    #             exc_info = sys.exc_info()
+    #     record = self.makeRecord(self.name, level, fn, lno, msg, args, exc_info, func, extra, sinfo)
+    #     self.handle(record)
+
+    def error(self, msg, *args, **kwargs):
+        self._log(ERROR, msg, args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        self._log(WARNING, msg, *args, **kwargs)
+
     def result(self, msg, *args, **kwargs):
         self._log(RESULT, msg, args, **kwargs)
 
     def status(self, msg, *args, **kwargs):
         self._log(STATUS, msg, args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        self._log(INFO, msg, args, **kwargs)
 
     def verbose(self, msg, *args, **kwargs):
         self._log(VERBOSE, msg, args, **kwargs)
@@ -101,6 +143,18 @@ class PerfLogger(logging.Logger):
 
     def verbosest(self, msg, *args, **kwargs):
         self._log(VERBOSEST, msg, args, **kwargs)
+
+    def debug(self, msg, *args, **kwargs):
+        self._log(DEBUG, msg, args, **kwargs)
+
+    def ridiculous(self, msg, *args, **kwargs):
+        self._log(RIDICULOUS, msg, args, **kwargs)
+
+    def ludicrous(self, msg, *args, **kwargs):
+        self._log(LUDICROUS, msg, args, **kwargs)
+
+    def plaid(self, msg, *args, **kwargs):
+        self._log(PLAID, msg, args, **kwargs)
 
     def log_queue_writer(self, level, msg):
         level_method = getattr(self, level.lower())
@@ -130,13 +184,12 @@ def get_perf_logger(logger_name, logger_hash=None, *args, **kwargs):
 
 def configure_basic_logger(logger_name=None, path=None, verbose=False,
                            stream_log_level=INFO, file_log_level=DEBUG, **kwargs):
-    LoggerClass = kwargs.get('logger_class', PerfLogger)
     if isinstance(stream_log_level, str):
         stream_log_level = logging.getLevelName(stream_log_level.upper())
     if isinstance(file_log_level, str):
         file_log_level = logging.getLevelName(file_log_level.upper())
 
-    logger = LoggerClass(logger_name)
+    logger = PerfLogger(logger_name)
     logger.setLevel(file_log_level)
 
     log_file_name = '{}.log'.format(logger_name.rstrip('.log'))
