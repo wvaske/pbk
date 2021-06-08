@@ -124,7 +124,7 @@ class PerfLogger(logging.Logger):
         self._log(ERROR, msg, args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        self._log(WARNING, msg, *args, **kwargs)
+        self._log(WARNING, msg, args, **kwargs)
 
     def result(self, msg, *args, **kwargs):
         self._log(RESULT, msg, args, **kwargs)
