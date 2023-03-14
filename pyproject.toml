@@ -1,0 +1,18 @@
+[build-system]
+requires = [ "flit_core >=3.1,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "pbk"
+version = "2023.03.0"
+description = "Perflosopher's Benchmark Kit and Utilities"
+authors = [{ name = "Wes Vaske", email = "perflosopher@perflosophy.com"}]
+requires-python = ">=3.8"
+dependencies = [ "paramiko" ]
+
+[options]
+packages = "find:"
+
+[project.scripts]
+pbk = "pbk.pbk:main"
+pghelp = "pbk.scripts.pghelp:main"

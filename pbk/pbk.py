@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 
 
@@ -64,6 +66,10 @@ def add_fio_parser_options(subparsers, parents):
     fio_group.add_argument('--numjobs', default=1)
 
 
-if __name__ == '__main__':
+def main():
     arguments = parse_arguments()
     print(arguments)
+
+
+if __name__ == '__main__':
+    main()
