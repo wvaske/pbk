@@ -16,8 +16,10 @@ def parse_arguments():
     return vars(arguments)
 
 
-def exec_psql_cmd(cmd, db_admin_user="postgres", db_admin_pass="postgres", hostname="localhost", **kwargs):
+def exec_psql_cmd(cmd, db_admin_user="postgres", db_admin_pass="postgres", hostname="localhost", database=None, **kwargs):
     command = ["psql", "-U", db_admin_user, "-w", "-h", hostname, "-c", cmd]
+    if database:
+        command.extend(['-d', database])
     output = subprocess.run(command, env={"PGPASSWORD": db_admin_pass}, capture_output=True)
     return output
 
@@ -33,10 +35,13 @@ def main():
         create_db_output = exec_psql_cmd(f"create database {username}", **args)
         create_user_output = exec_psql_cmd(f"create user {username} with encrypted password '{username}'", **args)
         grant_all_output = exec_psql_cmd(f"grant all privileges on database {username} to {username}", **args)
+        grant_public_schema_output = exec_psql_cmd(f"grant all privileges on schema public to {username}",
+                                                   database=username, **args)
 
         print(create_db_output)
         print(create_user_output)
         print(grant_all_output)
+        print(grant_public_schema_output)
 
     else:
         print(f'Did not get a good set of inputs? \n{args}')
